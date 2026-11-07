@@ -253,6 +253,8 @@ jobs:
         sed -i '/CONFIG_CC_STACKPROTECTOR/d' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         echo "CONFIG_CC_STACKPROTECTOR_NONE=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         sed -i 's/-no-integrated-as//g' Makefile
+        sed -i 's/clock_gettime_return, shift=1/clock_gettime_return shift=1/g' arch/arm64/kernel/vdso/gettimeofday.S
+        sed -i 's/\.macro clock_gettime_return, shift=0/\.macro clock_gettime_return shift=0/g' arch/arm64/kernel/vdso/gettimeofday.S
         
     - name: 设置ccache缓存
       if: env.ENABLE_CCACHE == 'true'

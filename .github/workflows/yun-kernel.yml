@@ -252,6 +252,8 @@ jobs:
         fi
         sed -i '/CONFIG_CC_STACKPROTECTOR/d' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         echo "CONFIG_CC_STACKPROTECTOR_NONE=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+        sed -i 's/-no-integrated-as//g' Makefile
+        sed -i 's/-Werror//g' Makefile
 
     - name: 设置ccache缓存
       if: env.ENABLE_CCACHE == 'true'

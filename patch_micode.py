@@ -54,7 +54,18 @@ def main():
                'int gator_gpu_pmu_init()',
                'int gator_gpu_pmu_init(void)')
 
-    # 7. Strip standalone -Werror from all Makefiles so minor warnings don't fail builds
+    # 7. arch/arm64/lib/ weak symbol binding (memcpy, memmove, memset)
+    patch_file('arch/arm64/lib/memcpy.S',
+               '\t.weak memcpy\nENTRY(__memcpy)\nENTRY(memcpy)',
+               'ENTRY(__memcpy)\nWEAK(memcpy)')
+    patch_file('arch/arm64/lib/memmove.S',
+               '\t.weak memmove\nENTRY(__memmove)\nENTRY(memmove)',
+               'ENTRY(__memmove)\nWEAK(memmove)')
+    patch_file('arch/arm64/lib/memset.S',
+               '\t.weak memset\nENTRY(__memset)\nENTRY(memset)',
+               'ENTRY(__memset)\nWEAK(memset)')
+
+    # 8. Strip standalone -Werror from all Makefiles so minor warnings don't fail builds
     werror_pat = re.compile(r'-Werror(?![=-])\b')
     count = 0
     for root, dirs, files in os.walk('.'):
@@ -70,7 +81,7 @@ def main():
                     count += 1
     print(f"Removed standalone -Werror from {count} Makefiles")
 
-    # 8. Add Clang warning suppression and -Wno-error to root Makefile
+    # 9. Add Clang warning suppression and -Wno-error to root Makefile
     patch_file('Makefile',
                'ifeq ($(cc-name),clang)\n',
                'ifeq ($(cc-name),clang)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)\nKBUILD_CFLAGS += -Wno-error\n')

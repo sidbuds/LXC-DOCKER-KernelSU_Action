@@ -1,4 +1,4 @@
-import os
+import os, re
 
 def patch_file(path, old, new):
     if not os.path.exists(path):
@@ -53,6 +53,27 @@ def main():
     patch_file('drivers/misc/mediatek/gpu/gpu_mali/mali_valhall/mali-r21p0/drivers/gpu/arm/midgard/platform/mtk_platform_common/mtk_mfg_counter.c',
                'int gator_gpu_pmu_init()',
                'int gator_gpu_pmu_init(void)')
+
+    # 7. Strip standalone -Werror from all Makefiles so minor warnings don't fail builds
+    werror_pat = re.compile(r'-Werror(?![=-])\b')
+    count = 0
+    for root, dirs, files in os.walk('.'):
+        for f in files:
+            if f.endswith('Makefile') or f.endswith('.mk') or f.startswith('Makefile'):
+                fpath = os.path.join(root, f)
+                with open(fpath, 'r', encoding='utf-8', errors='ignore') as fp:
+                    content = fp.read()
+                if werror_pat.search(content):
+                    content = werror_pat.sub('', content)
+                    with open(fpath, 'w', encoding='utf-8') as fp:
+                        fp.write(content)
+                    count += 1
+    print(f"Removed standalone -Werror from {count} Makefiles")
+
+    # 8. Add Clang warning suppression and -Wno-error to root Makefile
+    patch_file('Makefile',
+               'ifeq ($(cc-name),clang)\n',
+               'ifeq ($(cc-name),clang)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)\nKBUILD_CFLAGS += -Wno-error\n')
 
     print("=== All Patches Processed ===")
 

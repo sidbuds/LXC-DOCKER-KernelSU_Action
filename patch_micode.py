@@ -132,9 +132,16 @@ CONFIG_BRIDGE_NETFILTER=y
 CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
 CONFIG_NETFILTER_XT_MATCH_IPVS=y
 CONFIG_IP_VS=y
+CONFIG_MODULE_FORCE_LOAD=y
 """
     append_to_file('arch/arm64/configs/begonia_user_defconfig', safe_docker_configs.strip())
-    print("Added safe Docker configs to begonia_user_defconfig")
+    print("Added safe Docker configs and MODULE_FORCE_LOAD to begonia_user_defconfig")
+
+    # 12. Lock kernel release string to match official Xiaomi factory builder (-g7c18952d3c68)
+    # This ensures exact vermagic match for vendor WiFi/Bluetooth drivers (wlan.ko)
+    with open('.scmversion', 'w', encoding='utf-8') as f:
+        f.write('-g7c18952d3c68')
+    print("Created .scmversion with -g7c18952d3c68 (exact factory vermagic match)")
 
     print("=== All Patches Processed ===")
 

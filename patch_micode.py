@@ -28,7 +28,7 @@ def append_to_file(path, text):
     print(f"Successfully appended to: {path}")
 
 def main():
-    print("=== Applying Clang 14 Compatibility Patches to Xiaomi MiCode Kernel ===")
+    print("=== Applying Compatibility Patches & Safe Docker Configs to Xiaomi MiCode Kernel ===")
     
     # 1. arch/arm64/kernel/vdso/gettimeofday.S (fix positional argument error)
     patch_file('arch/arm64/kernel/vdso/gettimeofday.S',
@@ -121,6 +121,20 @@ extern char *stpcpy(char *, const char *);
     patch_file('Makefile',
                'ifeq ($(cc-name),clang)\n',
                'ifeq ($(cc-name),clang)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)\nKBUILD_CFLAGS += -Wno-error\nKBUILD_CFLAGS += -fno-builtin-stpcpy\n')
+
+    # 11. Add ONLY safe, essential Docker container configs to begonia_user_defconfig
+    # DO NOT add CONFIG_RT_GROUP_SCHED or CONFIG_SECURITY_APPARMOR (they break MTK CPU scheduler and SELinux)
+    safe_docker_configs = """
+CONFIG_CGROUP_DEVICE=y
+CONFIG_IPC_NS=y
+CONFIG_POSIX_MQUEUE=y
+CONFIG_BRIDGE_NETFILTER=y
+CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
+CONFIG_NETFILTER_XT_MATCH_IPVS=y
+CONFIG_IP_VS=y
+"""
+    append_to_file('arch/arm64/configs/begonia_user_defconfig', safe_docker_configs.strip())
+    print("Added safe Docker configs to begonia_user_defconfig")
 
     print("=== All Patches Processed ===")
 

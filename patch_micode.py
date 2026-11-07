@@ -14,10 +14,23 @@ def patch_file(path, old, new):
     else:
         print(f"Pattern already patched or not found in: {path}")
 
+def append_to_file(path, text):
+    if not os.path.exists(path):
+        print(f"Skipping {path} (not found)")
+        return
+    with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+    if text.strip() in content:
+        print(f"Text already in {path}")
+        return
+    with open(path, 'a', encoding='utf-8') as f:
+        f.write('\n' + text + '\n')
+    print(f"Successfully appended to: {path}")
+
 def main():
     print("=== Applying Clang 14 Compatibility Patches to Xiaomi MiCode Kernel ===")
     
-    # 1. arch/arm64/kernel/vdso/gettimeofday.S
+    # 1. arch/arm64/kernel/vdso/gettimeofday.S (fix positional argument error)
     patch_file('arch/arm64/kernel/vdso/gettimeofday.S',
                'clock_gettime_return, shift=1',
                'clock_gettime_return shift=1')
@@ -81,10 +94,33 @@ def main():
                     count += 1
     print(f"Removed standalone -Werror from {count} Makefiles")
 
-    # 9. Add Clang warning suppression and -Wno-error to root Makefile
+    # 9. Implement stpcpy in lib/string.c and declare in include/linux/string.h
+    stpcpy_code = """
+#ifndef __HAVE_ARCH_STPCPY
+char *stpcpy(char *dest, const char *src)
+{
+	while ((*dest++ = *src++) != '\\0')
+		/* nothing */;
+	return --dest;
+}
+EXPORT_SYMBOL(stpcpy);
+#endif
+"""
+    append_to_file('lib/string.c', stpcpy_code)
+
+    stpcpy_hdr = """
+#ifndef __HAVE_ARCH_STPCPY
+extern char *stpcpy(char *, const char *);
+#endif
+"""
+    patch_file('include/linux/string.h',
+               'extern char * strcpy(char *,const char *);\n#endif',
+               'extern char * strcpy(char *,const char *);\n#endif\n' + stpcpy_hdr.strip())
+
+    # 10. Add Clang warning suppression, -Wno-error, and -fno-builtin-stpcpy to root Makefile
     patch_file('Makefile',
                'ifeq ($(cc-name),clang)\n',
-               'ifeq ($(cc-name),clang)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)\nKBUILD_CFLAGS += -Wno-error\n')
+               'ifeq ($(cc-name),clang)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)\nKBUILD_CFLAGS += -Wno-error\nKBUILD_CFLAGS += -fno-builtin-stpcpy\n')
 
     print("=== All Patches Processed ===")
 

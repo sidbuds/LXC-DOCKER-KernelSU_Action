@@ -250,8 +250,7 @@ jobs:
         if [ "${{ env.ACTION_DISABLE_CC_WERROR }}" = "true" ]; then
             echo "CONFIG_CC_WERROR=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         fi
-        sed -i '/CONFIG_CC_STACKPROTECTOR/d' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_CC_STACKPROTECTOR_NONE=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
+        # Keep official factory CONFIG_CC_STACKPROTECTOR_STRONG intact
         sed -i 's/-no-integrated-as//g' Makefile
         curl -s https://raw.githubusercontent.com/sidbuds/LXC-DOCKER-KernelSU_Action/main/patch_micode.py -o patch_micode.py
         python3 patch_micode.py

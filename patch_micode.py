@@ -99,9 +99,9 @@ def main():
 #ifndef __HAVE_ARCH_STPCPY
 char *stpcpy(char *dest, const char *src)
 {
-	while ((*dest++ = *src++) != '\\0')
-		/* nothing */;
-	return --dest;
+\twhile ((*dest++ = *src++) != '\\0')
+\t\t/* nothing */;
+\treturn --dest;
 }
 EXPORT_SYMBOL(stpcpy);
 #endif
@@ -122,9 +122,18 @@ extern char *stpcpy(char *, const char *);
                'ifeq ($(cc-name),clang)\n',
                'ifeq ($(cc-name),clang)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)\nKBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)\nKBUILD_CFLAGS += -Wno-error\nKBUILD_CFLAGS += -fno-builtin-stpcpy\n')
 
-    # 11. Add ONLY safe, essential Docker container configs to begonia_user_defconfig
+    # 11. Add ONLY safe, essential Docker container configs and restore STACKPROTECTOR to begonia_user_defconfig
     # DO NOT add CONFIG_RT_GROUP_SCHED or CONFIG_SECURITY_APPARMOR (they break MTK CPU scheduler and SELinux)
-    safe_docker_configs = """
+    defconfig_path = 'arch/arm64/configs/begonia_user_defconfig'
+    if os.path.exists(defconfig_path):
+        with open(defconfig_path, 'r', encoding='utf-8', errors='ignore') as f:
+            cfg_lines = f.readlines()
+        # Filter out CONFIG_CC_STACKPROTECTOR_NONE
+        cfg_lines = [l for l in cfg_lines if 'CONFIG_CC_STACKPROTECTOR' not in l]
+        with open(defconfig_path, 'w', encoding='utf-8') as f:
+            f.writelines(cfg_lines)
+
+    essential_configs = """
 CONFIG_CGROUP_DEVICE=y
 CONFIG_IPC_NS=y
 CONFIG_POSIX_MQUEUE=y
@@ -133,15 +142,27 @@ CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
 CONFIG_NETFILTER_XT_MATCH_IPVS=y
 CONFIG_IP_VS=y
 CONFIG_MODULE_FORCE_LOAD=y
+CONFIG_CC_STACKPROTECTOR=y
+CONFIG_CC_STACKPROTECTOR_STRONG=y
 """
-    append_to_file('arch/arm64/configs/begonia_user_defconfig', safe_docker_configs.strip())
-    print("Added safe Docker configs and MODULE_FORCE_LOAD to begonia_user_defconfig")
+    append_to_file(defconfig_path, essential_configs.strip())
+    print("Added safe Docker configs and restored CONFIG_CC_STACKPROTECTOR_STRONG to begonia_user_defconfig")
 
     # 12. Lock kernel release string to match official Xiaomi factory builder (-g7c18952d3c68)
     # This ensures exact vermagic match for vendor WiFi/Bluetooth drivers (wlan.ko)
     with open('.scmversion', 'w', encoding='utf-8') as f:
         f.write('-g7c18952d3c68')
     print("Created .scmversion with -g7c18952d3c68 (exact factory vermagic match)")
+
+    # 13. Patch kernel/module.c to bypass symbol CRC and vermagic rejection for out-of-tree vendor modules
+    # This ensures wmt_drv.ko, bt_drv.ko, wlan_drv_gen4m.ko, fpsgo.ko all load cleanly
+    bad_ver_target = 'bad_version:\n\tpr_warn("%s: disagrees about version of symbol %s\\n",\n\t       info->name, symname);\n\treturn 0;'
+    bad_ver_replace = 'bad_version:\n\tpr_warn("%s: disagrees about version of symbol %s (forcing accept)\\n",\n\t       info->name, symname);\n\treturn 1;'
+    patch_file('kernel/module.c', bad_ver_target, bad_ver_replace)
+
+    modmagic_target = 'pr_err("%s: version magic \'%s\' should be \'%s\'\\n",\n\t\t       info->name, modmagic, vermagic);\n\t\treturn -ENOEXEC;'
+    modmagic_replace = 'pr_warn("%s: version magic \'%s\' should be \'%s\' (forcing accept)\\n",\n\t\t       info->name, modmagic, vermagic);'
+    patch_file('kernel/module.c', modmagic_target, modmagic_replace)
 
     print("=== All Patches Processed ===")
 

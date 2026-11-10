@@ -135,6 +135,8 @@ extern char *stpcpy(char *, const char *);
 
     essential_configs = """
 CONFIG_CGROUP_DEVICE=y
+CONFIG_SYSVIPC=y
+CONFIG_SYSVIPC_SYSCTL=y
 CONFIG_IPC_NS=y
 CONFIG_POSIX_MQUEUE=y
 CONFIG_BRIDGE_NETFILTER=y
